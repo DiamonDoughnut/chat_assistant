@@ -18,7 +18,7 @@ app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'your-secret-key-chan
 # CORS headers
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
+    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
@@ -117,7 +117,7 @@ def login():
 
     user = user_collection.find_one({"username": username})
 
-    if not user or not check_password_hash(user['password_hash'], password):
+    if not user or not PASSWORD_HASH.verify(password, user['password_hash']):
         return jsonify({"error": "Invalid username or password"}), 401
     
     # Generate JWT token
@@ -135,7 +135,7 @@ def chat():
     try:    
         chatbot = Chatbot()
         data = request.get_json(force=True)
-        user_id = data.get("user_id")
+        user_id = request.current_user['username']  # Get from JWT token
         user_text = data.get("user_text", "")
         code = data.get("code", "")
         lang = data.get("lang", "plaintext")
@@ -153,7 +153,7 @@ def chat():
         # Initialize session
         history = user.chat_history
         user_content = build_user_content(user_text, code, lang)
-        prompt = {"role": "user", "content": user_content}
+        prompt = {"role": "user", "parts": [{"text": user_content}]}
 
         response_dict = chatbot.make_llm_request(user_id=user.user_id, prompt=prompt, history=history)
         return jsonify(response_dict)

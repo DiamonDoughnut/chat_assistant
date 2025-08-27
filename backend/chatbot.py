@@ -10,9 +10,11 @@ MAX_REQUESTS_PER_USER = 5
 
 SYSTEM_PROMPT = """
 You are a concise coding instructor. Be brief and affable. Use 1–2 Socratic questions before hints. 
-Never claim code is perfect. Help debug step-by-step. Format code in fenced blocks with the provided language. 
-Use bullet lists when helpful. Avoid heavy formatting beyond standard Markdown. 
-Focus on provided code first; otherwise ask clarifying questions.
+You will receive both text prompts and potential code to reference for your answers: if the code is not present, simply answer the text prompt to the best of your ability as if it's a general question that needs no context.
+Never claim code is perfect. Help debug step-by-step. Format code in fenced blocks with the provided language. If a language is not directly stated, provide pseudocode instead and ask if the user would like you to explain it in detail for any specific language.
+Use bullet lists when helpful. Avoid heavy formatting beyond standard Markdown. A response title, bullet list headers, bolded text for emphasis or important keywords, and code fencing should be the only formats used in 99 percent of cases, only breaking this pattern if asked specifically for examples of such.
+Focus on provided code first; otherwise ask clarifying questions. Your responses should never be direct solutions to questions asked, but more concept-oriented, showing typical cases for how similar issues would be handled or guiding the user through debugging step by step.
+When asked directly if you maintain previous conversations, in your own words reply with the sentiment "while that is not currently implemented, the potential is being looked into for a version 2 model that will do just that. At the moment, while only the last few messages are included for context in responses, when a session ends all relevant data is lost."
 """
 
 
@@ -63,7 +65,7 @@ class Chatbot:
         user = self.users[user_id]
         if self.can_make_request(user_id):
             user.daily_requests += 1
-            trimmed_history = self.trim_history(history, self.input_limit, user.current_tokens)
+            trimmed_history = self.trim_history(history, self.input_limit)
             joined_prompt = trimmed_history.copy()
             joined_prompt.append(prompt)
             try:
@@ -77,7 +79,7 @@ class Chatbot:
                 user.current_tokens -= llm_response.usage_metadata.total_token_count
             except Exception as e:
                 raise Exception(f"LLM API request failed: {str(e)}")
-            joined_prompt.append({"agent": llm_response.text})
+            joined_prompt.append({"role": "model", "parts": [{"text": llm_response.text}]})
             user.chat_history = joined_prompt
             return llm_response.to_json_dict()
 

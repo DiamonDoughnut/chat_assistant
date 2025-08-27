@@ -39,7 +39,7 @@ class Chatbot:
     def _check_daily_quota(self, user):
         now = datetime.now()
         daily_start_time = datetime.fromtimestamp(user.daily_start_time)
-        if now.month != daily_start_time.month or now.year != daily_start_time.year:
+        if now.day != daily_start_time.day or now.month != daily_start_time.month or now.year != daily_start_time.year:
             user.daily_requests = 0
             user.daily_start_time = time.time()
         return user.daily_requests < user.daily_quota
@@ -51,30 +51,32 @@ class Chatbot:
             self.users[user_id] = user
 
         if not self._check_daily_quota(user):
-            raise Exception(f"User {user_id}: daily quota exceeded")
+            raise ValueError(f"User {user_id}: daily quota exceeded")
 
-        self._refill_tokens(user_id)
-        user = self.users[user_id]
-        if user.current_tokens >= 1:
-            return True
-        else:
-            raise Exception(f"User {user_id}: Rate limit exceeded. Please wait a moment and try again.")
+        self._refill_tokens(user)
+        if user.current_tokens < 1:
+            raise ValueError(f"User {user_id}: Rate limit exceeded. Please wait a moment and try again.")
+        return True
+        
 
     def make_llm_request(self, user_id, prompt, history):
         user = self.users[user_id]
         if self.can_make_request(user_id):
             user.daily_requests += 1
-            trimmed_history = self.trim_history(history)
-            joined_prompt = trimmed_history
+            trimmed_history = self.trim_history(history, self.input_limit, user.current_tokens)
+            joined_prompt = trimmed_history.copy()
             joined_prompt.append(prompt)
-            prompt_tokens = self.client.models.count_tokens(joined_prompt)
-            user.current_tokens -= prompt_tokens
-            llm_response = self.client.models.generate_content(
-                model=self.model,
-                contents=joined_prompt,
-                config=self.config
-            )
-            user.current_tokens -= llm_response.usage_metadata.total_token_count
+            try:
+                prompt_tokens = self.client.models.count_tokens(joined_prompt)
+                user.current_tokens -= prompt_tokens
+                llm_response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=joined_prompt,
+                    config=self.config
+                )
+                user.current_tokens -= llm_response.usage_metadata.total_token_count
+            except Exception as e:
+                raise Exception(f"LLM API request failed: {str(e)}")
             joined_prompt.append({"agent": llm_response.text})
             user.chat_history = joined_prompt
             return llm_response.to_json_dict()
@@ -93,9 +95,12 @@ class Chatbot:
         system = [m for m in messages if m["role"] == "system"][:1]
         rest = [m for m in messages if m["role"] != "system"]
         kept = []
+        current_tokens = self.total_tokens(system)
         for m in reversed(rest):
-            if m <= 5:
+            message_tokens = self.total_tokens([m])
+            if current_tokens + message_tokens <= max_tokens:
                 kept.append(m)
+                current_tokens += message_tokens
             else:
                 break
         return system + list(reversed(kept))

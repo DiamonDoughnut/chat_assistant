@@ -28,7 +28,7 @@ def get_db():
         db_url = os.getenv("MONGODB_URL")
         return pymongo.MongoClient(db_url)
     except pymongo.errors.ConfigurationError:
-        raise Exception("An Invalid URI host error was received. Is your Atlas host name correct in your connection string?")
+        raise pymongo.errors.ConfigurationError("An Invalid URI host error was received. Is your Atlas host name correct in your connection string?")
 
 #db
 def build_user_content(user_text, code, lang):
@@ -50,7 +50,7 @@ def get_sessions(uuid):
     if doc:
         return doc
     else:
-        raise Exception("Could not find session data")
+        raise pymongo.errors.OperationFailure("Could not find session data")
 
 #db
 def create_doc(dict):
@@ -70,24 +70,27 @@ def register():
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
     client = get_db()
-    db = client["user_chat_history"]
+    db = client["user_chat_histories"]
     users_collection = db["users"]
     # Check if user already exists
     if users_collection.find_one({"username": username}):
         return jsonify({"error": "Username already exists"}), 409
 
-    new_uuid = create_doc({"username": username, "created_at": time.time(), "chat_history":[]})
-
-    # Hash the password
-    password_hash = hash_password(password)
-
-    # Insert the new user document into MongoDB
-    users_collection.insert_one({
-        "username": username,
-        "password_hash": password_hash,
-        "created_at": datetime.utcnow(),
-        "user_id": str(new_uuid)
-    })
+    try:
+        new_uuid = create_doc({"username": username, "created_at": time.time(), "chat_history":[]})
+        
+        # Hash the password
+        password_hash = check_password_hash(password)
+        
+        # Insert the new user document into MongoDB
+        users_collection.insert_one({
+            "username": username,
+            "password_hash": password_hash,
+            "created_at": datetime.utcnow(),
+            "user_id": str(new_uuid)
+        })
+    except Exception as e:
+        return jsonify({"error": "Registration failed"}), 500
 
     return jsonify({"message": "User registered successfully"}), 201
 
@@ -96,14 +99,18 @@ def login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+    
+    # Validate inputs to prevent NoSQL injection
+    if not isinstance(username, str) or not isinstance(password, str):
+        return jsonify({"error": "Invalid username or password"}), 401
 
     client = get_db()
     db = client["user_chat_histories"]
-    user_collection = client["users"]
+    user_collection = db["users"]
 
     user = user_collection.find_one({"username": username})
 
-    if not user and not check_password_hash(user['password_hash'], password):
+    if not user or not check_password_hash(user['password_hash'], password):
         # Failed login
         return jsonify({"error": "Invalid username or password"}), 401
     else:
@@ -147,11 +154,11 @@ def chat():
         return jsonify({"error": e})
     
 
-def hash_password(password):
+def check_password_hash(password):
     return PASSWORD_HASH.hash(password)
 
 def start_flask():
-    app.run(debug=True)
+    app.run()
 
 if __name__ == "__main__":
     t = threading.Thread(target=start_flask)

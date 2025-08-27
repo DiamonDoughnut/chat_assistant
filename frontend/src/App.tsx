@@ -12,14 +12,14 @@ function App() {
   const [error, setError] = useState<Error | undefined>()
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center">
+      <header className="text-center">
+        <img src={logo} className="h-40 mx-auto animate-spin" alt="logo" />
+        <p className="text-xl mt-4">
+          Edit <code className="bg-gray-800 px-2 py-1 rounded">src/App.js</code> and save to reload.
         </p>
         <a
-          className="App-link"
+          className="text-blue-400 hover:text-blue-300 mt-4 inline-block"
           href="https://reactjs.org"
           target="_blank"
           rel="noopener noreferrer"

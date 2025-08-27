@@ -139,14 +139,12 @@ def chat():
         user_text = data.get("user_text", "")
         code = data.get("code", "")
         lang = data.get("lang", "plaintext")
-        settings = data.get("settings", {}) or {}
-        max_resp = int(settings.get("max_response_tokens", 800))
 
         user = chatbot.users[user_id]
 
         # Enforce code size cap
         if code:
-            if code.count("\n") + 1 > 150:
+            if code.count("\n") + 1 > 152:
                 return jsonify({
                     "error": "code_too_large",
                     "message": "Please paste a smaller snippet (<= 150 lines) or share a repro gist.",
@@ -174,5 +172,5 @@ if __name__ == "__main__":
     t.daemon = True
     t.start()
 
-    webview.create_window("Coding Assistant", 'http://localhost:3000')
+    webview.create_window("Coding Assistant", 'http://localhost:5173')
     webview.start()

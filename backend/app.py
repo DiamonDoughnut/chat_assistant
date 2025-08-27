@@ -2,48 +2,35 @@ from flask import Flask, request, jsonify
 import os, time, uuid
 import webview
 import threading
+import pymongo
+from dotenv import load_dotenv
+from pathlib import Path
+from passlib.context import CryptContext
+import csv
+from bson.objectid import ObjectId
+import datetime
+from google import genai
+from user import User
+from chatbot import Chatbot
+from google.genai import types
 
 app = Flask(__name__)
 
 # Simple in-memory store: {session_id: [messages]}
 SESSIONS = {}
 
-# Model configs
-PROVIDERS = [
-    {
-        "name": "openai",
-        "model": "gpt-4o-mini",
-        "ctx_tokens": 128000,
-        "temperature": 0.2,
-    },
-    # Add more providers/models here with their ctx limits
-]
+SCRIPT_DIRECTORY = Path(__file__).parent
+USER_DATA_FILE_PATH = SCRIPT_DIRECTORY / "user_data" / "users.csv"
+PASSWORD_HASH = CryptContext(schemes=["argon2"], deprecated="auto")
+def get_db():
+    try:
+        load_dotenv()
+        db_url = os.getenv("MONGODB_URL")
+        return pymongo.MongoClient(db_url)
+    except pymongo.errors.ConfigurationError:
+        raise Exception("An Invalid URI host error was received. Is your Atlas host name correct in your connection string?")
 
-SYSTEM_PROMPT = """
-You are a concise coding instructor. Be brief and affable. Use 1–2 Socratic questions before hints. 
-Never claim code is perfect. Help debug step-by-step. Format code in fenced blocks with the provided language. 
-Use bullet lists when helpful. Avoid heavy formatting beyond standard Markdown. 
-Focus on provided code first; otherwise ask clarifying questions."""
-
-def est_tokens(text: str) -> int:
-    # naive estimate ~4 chars per token
-    return max(1, len(text) // 4)
-
-def total_tokens(messages):
-    return sum(est_tokens(m["content"]) for m in messages)
-
-def trim_history(messages, max_tokens):
-    # Keep system + as much recent history as fits
-    system = [m for m in messages if m["role"] == "system"][:1]
-    rest = [m for m in messages if m["role"] != "system"]
-    kept = []
-    for m in reversed(rest):
-        if total_tokens(system + list(reversed(kept)) + [m]) <= max_tokens:
-            kept.append(m)
-        else:
-            break
-    return system + list(reversed(kept))
-
+#db
 def build_user_content(user_text, code, lang):
     parts = []
     if user_text:
@@ -52,85 +39,116 @@ def build_user_content(user_text, code, lang):
         parts.append(f"```{lang or ''}\n{code.strip()}\n```")
     return "\n\n".join(parts).strip()
 
-def call_openai(messages, model, temperature):
-    import openai
-    openai.api_key = os.environ.get("OPENAI_API_KEY")
-    resp = openai.ChatCompletion.create(
-        model=model,
-        messages=messages,
-        temperature=temperature,
-    )
-    content = resp["choices"][0]["message"]["content"]
-    usage = resp.get("usage", {})
-    return content, usage
+#db
+def get_sessions(uuid):
 
-def call_provider(provider, messages):
-    name = provider["name"]
-    if name == "openai":
-        return call_openai(messages, provider["model"], provider["temperature"])
-    raise RuntimeError(f"Unknown provider {name}")
+    object_id = ObjectId(uuid)
+    client = get_db()
+    db = client["user_chat_histories"]
+    collection = db["chats"]
+    doc = collection.find_one({"_id": object_id})
+    if doc:
+        return doc
+    else:
+        raise Exception("Could not find session data")
 
+#db
+def create_doc(dict):
+    client = get_db()
+    db = client["user_chat_histories"]
+    collection = db["chats"]
+    insert_result = collection.insert_one(dict)
+    new_uuid = insert_result.inserted_id
+    return str(new_uuid)
+
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({"error": "Username and password are required"}), 400
+    client = get_db()
+    db = client["user_chat_history"]
+    users_collection = db["users"]
+    # Check if user already exists
+    if users_collection.find_one({"username": username}):
+        return jsonify({"error": "Username already exists"}), 409
+
+    new_uuid = create_doc({"username": username, "created_at": time.time(), "chat_history":[]})
+
+    # Hash the password
+    password_hash = hash_password(password)
+
+    # Insert the new user document into MongoDB
+    users_collection.insert_one({
+        "username": username,
+        "password_hash": password_hash,
+        "created_at": datetime.utcnow(),
+        "user_id": str(new_uuid)
+    })
+
+    return jsonify({"message": "User registered successfully"}), 201
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    client = get_db()
+    db = client["user_chat_histories"]
+    user_collection = client["users"]
+
+    user = user_collection.find_one({"username": username})
+
+    if not user and not check_password_hash(user['password_hash'], password):
+        # Failed login
+        return jsonify({"error": "Invalid username or password"}), 401
+    else:
+        # Successful login
+        chat_collection = db["user_chat_histories"]
+        user_doc = get_sessions(user["_id"])
+        new_user = User().login(user_doc)
+        return jsonify({"success": f"logged in as {username}"})
+
+#db
 @app.route("/chat", methods=["POST"])
 def chat():
-    data = request.get_json(force=True)
-    session_id = data.get("session_id") or str(uuid.uuid4())
-    user_text = data.get("user_text", "")
-    code = data.get("code", "")
-    lang = data.get("lang", "plaintext")
-    settings = data.get("settings", {}) or {}
-    max_resp = int(settings.get("max_response_tokens", 800))
+    try:    
+        chatbot = Chatbot()
+        data = request.get_json(force=True)
+        user_id = data.get("user_id")
+        user_text = data.get("user_text", "")
+        code = data.get("code", "")
+        lang = data.get("lang", "plaintext")
+        settings = data.get("settings", {}) or {}
+        max_resp = int(settings.get("max_response_tokens", 800))
 
-    # Enforce code size cap
-    if code:
-        if code.count("\n") + 1 > 150:
-            return jsonify({
-                "error": "code_too_large",
-                "message": "Please paste a smaller snippet (<= 150 lines) or share a repro gist.",
-                "session_id": session_id
-            }), 400
+        user = chatbot.users[user_id]
 
-    # Initialize session
-    history = SESSIONS.get(session_id, [])
-    if not history:
-        history = [{"role": "system", "content": SYSTEM_PROMPT}]
-    # Build user turn
-    user_content = build_user_content(user_text, code, lang)
-    history.append({"role": "user", "content": user_content})
+        # Enforce code size cap
+        if code:
+            if code.count("\n") + 1 > 150:
+                return jsonify({
+                    "error": "code_too_large",
+                    "message": "Please paste a smaller snippet (<= 150 lines) or share a repro gist.",
+                }), 400
 
-    last_error = None
-    # Try providers in order
-    for p in PROVIDERS:
-        ctx_limit = p["ctx_tokens"]
-        # Conservative budget: leave room for response
-        budget = max(1000, ctx_limit - max_resp - 1000)
-        trimmed = trim_history(history, budget)
-        try:
-            content, usage = call_provider(p, trimmed)
-            # Save assistant reply
-            history.append({"role": "assistant", "content": content})
-            # Cap history size in memory (optional)
-            if len(history) > 50:
-                history = trim_history(history, 20000)
-            SESSIONS[session_id] = history
-            return jsonify({
-                "assistant_markdown": content,
-                "usage": usage,
-                "provider": p["name"],
-                "model": p["model"],
-                "session_id": session_id
-            })
-        except Exception as e:
-            last_error = str(e)
-            # On certain errors, continue; otherwise break
-            time.sleep(0.2)
-            continue
+        # Initialize session
+        history = user.chat_history
+        user_content = build_user_content(user_text, code, lang)
+        prompt = {"role": "user", "content": user_content}
 
-    return jsonify({
-        "error": "all_providers_failed",
-        "message": "All providers failed. Try again shortly.",
-        "details": last_error,
-        "session_id": session_id
-    }), 502
+        response_dict = chatbot.make_llm_request(user_id=user.user_id, prompt=prompt, history=history)
+        return jsonify(response_dict)
+    except Exception as e:
+        return jsonify({"error": e})
+    
+
+def hash_password(password):
+    return PASSWORD_HASH.hash(password)
 
 def start_flask():
     app.run(debug=True)

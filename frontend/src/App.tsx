@@ -1,7 +1,16 @@
+"use client"
 import logo from './logo.svg';
 import './App.css';
+import React, {useState, useEffect} from 'react'
 
 function App() {
+  const [username, setUsername] = useState<string>()
+  const [chatHistory, setChatHistory] = useState<string[]>()
+  const [currentMessage, setCurrentMessage] = useState<string>()
+  const [currentCode, setCurrentCode] = useState<string>()
+  const [currentLang, setCurrentLang] = useState<"python" | "javascript" | "typescript" | "go" | "java" | "shell" | undefined>()
+  const [error, setError] = useState<Error | undefined>()
+
   return (
     <div className="App">
       <header className="App-header">

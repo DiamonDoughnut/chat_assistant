@@ -1,18 +1,15 @@
 from flask import Flask, request, jsonify
-import os, time, uuid
+import os, time
 import webview
 import threading
 import pymongo
 from dotenv import load_dotenv
 from pathlib import Path
 from passlib.context import CryptContext
-import csv
 from bson.objectid import ObjectId
 import datetime
 from google import genai
-from user import User
 from chatbot import Chatbot
-from google.genai import types
 from middleware import create_jwt_token, require_auth
 
 app = Flask(__name__)

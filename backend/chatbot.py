@@ -18,7 +18,7 @@ Focus on provided code first; otherwise ask clarifying questions.
 
 class Chatbot:
     def __init__(self):
-        self.users = defaultdict(lambda: User(user_id=None))
+        self.users = defaultdict(lambda: User(chat_history=[], user_id=None))
         self.input_token_cost = 0.00001
         self.output_token_cost = 0.00003
         self.client = genai.Client()
@@ -47,7 +47,7 @@ class Chatbot:
     def can_make_request(self, user_id):
         user = self.users[user_id]
         if user.user_id is None:
-            user = User(user_id)
+            user = User(chat_history=[], user_id=user_id)
             self.users[user_id] = user
 
         if not self._check_daily_quota(user):

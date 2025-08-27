@@ -24,7 +24,7 @@ class Chatbot:
         self.input_token_cost = 0.00001
         self.output_token_cost = 0.00003
         self.client = genai.Client()
-        self.model = "gemini-2.5-flash-001"
+        self.model = "gemini-2.5-flash"
         self.input_limit, self.output_limit = self.get_response_limits()
         self.minute_tokens = 250000
         self.minute_requests = 10
@@ -65,11 +65,20 @@ class Chatbot:
         user = self.users[user_id]
         if self.can_make_request(user_id):
             user.daily_requests += 1
+            # Ensure history is a list
+            if not isinstance(history, list):
+                history = []
+            
             trimmed_history = self.trim_history(history, self.input_limit)
             joined_prompt = trimmed_history.copy()
             joined_prompt.append(prompt)
+            
+            # Ensure we have at least one message
+            if not joined_prompt:
+                joined_prompt = [prompt]
             try:
-                prompt_tokens = self.client.models.count_tokens(joined_prompt)
+                prompt_tokens_response = self.client.models.count_tokens(model=self.model, contents=joined_prompt)
+                prompt_tokens = prompt_tokens_response.total_tokens
                 user.current_tokens -= prompt_tokens
                 llm_response = self.client.models.generate_content(
                     model=self.model,
@@ -77,11 +86,22 @@ class Chatbot:
                     config=self.config
                 )
                 user.current_tokens -= llm_response.usage_metadata.total_token_count
+                
+                # Add response to history
+                joined_prompt.append({"role": "model", "parts": [{"text": llm_response.text}]})
+                user.chat_history = joined_prompt
+                
+                # Return serializable response
+                return {
+                    "text": llm_response.text,
+                    "usage_metadata": {
+                        "total_token_count": llm_response.usage_metadata.total_token_count,
+                        "prompt_token_count": llm_response.usage_metadata.prompt_token_count,
+                        "candidates_token_count": llm_response.usage_metadata.candidates_token_count
+                    }
+                }
             except Exception as e:
                 raise Exception(f"LLM API request failed: {str(e)}")
-            joined_prompt.append({"role": "model", "parts": [{"text": llm_response.text}]})
-            user.chat_history = joined_prompt
-            return llm_response.to_json_dict()
 
             
     
@@ -90,20 +110,37 @@ class Chatbot:
         return (model_info.input_token_limit, model_info.output_token_limit)
     
     def total_tokens(self, messages):
-        return self.client.models.count_tokens(model=self.model, contents=messages)
+        if not messages:
+            return 0
+        response = self.client.models.count_tokens(model=self.model, contents=messages)
+        return response.total_tokens
     
     def trim_history(self, messages, max_tokens):
+        # Handle empty messages
+        if not messages:
+            return []
+            
         # Keep system + as much recent history as fits
-        system = [m for m in messages if m["role"] == "system"][:1]
-        rest = [m for m in messages if m["role"] != "system"]
+        system = [m for m in messages if m.get("role") == "system"][:1]
+        rest = [m for m in messages if m.get("role") != "system"]
         kept = []
-        current_tokens = self.total_tokens(system)
+        
+        # Handle empty system messages
+        if system:
+            current_tokens = self.total_tokens(system)
+        else:
+            current_tokens = 0
+            
         for m in reversed(rest):
-            message_tokens = self.total_tokens([m])
-            if current_tokens + message_tokens <= max_tokens:
-                kept.append(m)
-                current_tokens += message_tokens
-            else:
-                break
+            try:
+                message_tokens = self.total_tokens([m])
+                if current_tokens + message_tokens <= max_tokens:
+                    kept.append(m)
+                    current_tokens += message_tokens
+                else:
+                    break
+            except:
+                # Skip malformed messages
+                continue
         return system + list(reversed(kept))
 

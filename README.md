@@ -1,70 +1,183 @@
-# Getting Started with Create React App
+# AI Chat Assistant
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A desktop chat application with AI-powered coding assistance, built with modern web technologies and packaged as a native desktop app.
 
-## Available Scripts
+![Chat Assistant Demo](demo.gif)
 
-In the project directory, you can run:
+## 🚀 Features
 
-### `npm start`
+- **AI-Powered Chat**: Integration with Google Gemini AI for intelligent coding assistance
+- **User Authentication**: Secure JWT-based login and registration system
+- **Code Syntax Highlighting**: Real-time syntax highlighting for multiple programming languages
+- **Markdown Support**: Rich text rendering with markdown formatting
+- **Desktop Application**: Native desktop experience using Python WebView
+- **Rate Limiting**: Token bucket system to manage API usage
+- **Responsive Design**: Modern UI with Tailwind CSS and dark theme
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## 🛠️ Tech Stack
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Frontend
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **Tailwind CSS** for styling
+- **ShadCN/UI** for component library
+- **React Markdown** for rich text rendering
+- **Syntax Highlighting** with Prism.js
 
-### `npm test`
+### Backend
+- **Flask** web framework
+- **MongoDB** for data persistence
+- **JWT** for authentication
+- **Google Gemini API** for AI responses
+- **Passlib** for password hashing
+- **Python WebView** for desktop packaging
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Development Tools
+- **TypeScript** for type safety
+- **ESLint** for code quality
+- **PostCSS** for CSS processing
 
-### `npm run build`
+## 📋 Prerequisites
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- **Node.js** (v18 or higher)
+- **Python** (v3.8 or higher)
+- **MongoDB** database (local or Atlas)
+- **Google Gemini API** key
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 🔧 Installation
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### 1. Clone the Repository
+```bash
+git clone https://github.com/yourusername/ai-chat-assistant.git
+cd ai-chat-assistant
+```
 
-### `npm run eject`
+### 2. Backend Setup
+```bash
+cd backend
+pip install -r requirements.txt
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### 3. Frontend Setup
+```bash
+cd frontend
+npm install
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 4. Environment Configuration
+Copy the example environment file and configure your settings:
+```bash
+cp backend/.env.example backend/.env
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Edit `backend/.env` with your credentials:
+```env
+MONGODB_URL=your_mongodb_connection_string
+GEMINI_API_KEY=your_gemini_api_key
+JWT_SECRET_KEY=your_secure_jwt_secret_key
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## 🚀 Running the Application
 
-## Learn More
+### Development Mode
+```bash
+# Terminal 1 - Start Frontend
+cd frontend
+npm run dev
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+# Terminal 2 - Start Backend + Desktop App
+cd backend
+python app.py
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Production Build
+```bash
+# Build frontend
+cd frontend
+npm run build
 
-### Code Splitting
+# Run production server
+cd backend
+python app.py
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## 🏗️ Architecture
 
-### Analyzing the Bundle Size
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   React Frontend │    │   Flask Backend │    │   MongoDB       │
+│   (Port 5173)   │◄──►│   (Port 5000)   │◄──►│   Database      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   WebView       │    │   JWT Auth      │    │   User Data     │
+│   Desktop App   │    │   Middleware    │    │   Chat History  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                │
+                                ▼
+                       ┌─────────────────┐
+                       │   Gemini AI     │
+                       │   API           │
+                       └─────────────────┘
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## 🔐 Security Features
 
-### Making a Progressive Web App
+- **Password Hashing**: Argon2 algorithm for secure password storage
+- **JWT Tokens**: Stateless authentication with expiration
+- **Rate Limiting**: Token bucket system to prevent API abuse
+- **Input Validation**: Comprehensive validation on both frontend and backend
+- **CORS Protection**: Configured for secure cross-origin requests
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## 📱 Usage
 
-### Advanced Configuration
+1. **Registration**: Create a new account with username and password
+2. **Login**: Authenticate to access the chat interface
+3. **Chat**: Ask coding questions or request help with debugging
+4. **Code Input**: Use the collapsible code section to provide context
+5. **Language Selection**: Choose from 13+ programming languages
+6. **Markdown Rendering**: Responses include formatted code and text
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## 🎯 Key Technical Achievements
 
-### Deployment
+- **Full-Stack Development**: Complete application from UI to database
+- **AI Integration**: Seamless integration with Google's Gemini AI
+- **Modern Frontend**: React with TypeScript and modern tooling
+- **Authentication System**: Secure JWT-based user management
+- **Desktop Packaging**: Web app packaged as native desktop application
+- **Error Handling**: Comprehensive error boundaries and user feedback
+- **Performance**: Optimized with Vite build system and efficient state management
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## 📊 Project Statistics
 
-### `npm run build` fails to minify
+- **Languages**: TypeScript, Python, CSS
+- **Components**: 8+ React components
+- **API Endpoints**: 3 REST endpoints
+- **Database Collections**: Users, Chat History
+- **Dependencies**: 50+ npm packages, 15+ Python packages
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Google Gemini AI for intelligent responses
+- ShadCN for beautiful UI components
+- The React and Flask communities for excellent documentation
+
+---
+
+**Built with ❤️ by [Your Name]**
+
+*This project demonstrates full-stack development capabilities, AI integration, and modern web technologies.*

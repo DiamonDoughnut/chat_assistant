@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from passlib.context import CryptContext
 from bson.objectid import ObjectId
-import datetime
+from datetime import datetime, timedelta
 from google import genai
 from chatbot import Chatbot
 from middleware import create_jwt_token, require_auth
@@ -84,10 +84,11 @@ def register():
         return jsonify({"error": "Username already exists"}), 409
 
     try:
-        new_uuid = create_doc({"username": username, "created_at": time.time(), "chat_history":[]})
+        # Hash the password first
+        password_hash = PASSWORD_HASH.hash(password)
         
-        # Hash the password
-        password_hash = check_password_hash(password)
+        # Create chat history document
+        new_uuid = create_doc({"username": username, "created_at": time.time(), "chat_history":[]})
         
         # Insert the new user document into MongoDB
         users_collection.insert_one({
@@ -97,7 +98,8 @@ def register():
             "user_id": str(new_uuid)
         })
     except Exception as e:
-        return jsonify({"error": "Registration failed"}), 500
+        print(f"Registration error: {str(e)}")
+        return jsonify({"error": f"Registration failed: {str(e)}"}), 500
 
     return jsonify({"message": "User registered successfully"}), 201
 
@@ -158,11 +160,11 @@ def chat():
         response_dict = chatbot.make_llm_request(user_id=user.user_id, prompt=prompt, history=history)
         return jsonify(response_dict)
     except Exception as e:
-        return jsonify({"error": e})
+        print(f"Chat error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
     
 
-def check_password_hash(password):
-    return PASSWORD_HASH.hash(password)
+
 
 def start_flask():
     app.run()

@@ -8,8 +8,8 @@ def create_jwt_token(user_id, username):
     payload = {
         'user_id': str(user_id),
         'username': username,
-        'exp': datetime.now(datetime.timezone.utc) + timedelta(hours=24),
-        'iat': datetime.now(datetime.timezone.utc)
+        'exp': datetime.utcnow() + timedelta(hours=24),
+        'iat': datetime.utcnow()
     }
     return jwt.encode(payload, os.getenv('JWT_SECRET_KEY'), algorithm='HS256')
 

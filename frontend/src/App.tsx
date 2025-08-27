@@ -1,5 +1,5 @@
 "use client"
-import {useState, useEffect} from 'react'
+import React, {useState, useEffect} from 'react'
 
 import './App.css'
 import { useAuth } from './hooks/useAuth'
@@ -23,11 +23,7 @@ function App() {
     if (response) {
       const modelMessage = build_model_message(response)
       setChatMessages(prev => [...prev, modelMessage])
-    }
-  }, [response, build_model_message])
-
-  useEffect(() => {
-    if (promptError) {
+    } else if (promptError) {
       console.error('Chat error:', promptError)
       const errorMessage: MessageObject = {
         role: "model",
@@ -35,13 +31,13 @@ function App() {
       }
       setChatMessages(prev => [...prev, errorMessage])
     }
-  }, [promptError])
+  }, [response, promptError])
 
   const handleSubmit = async () => {
     if (!currentMessage.trim() || !user_data || isLoading) return
 
     try {
-      const userMessage = build_user_message(currentMessage, currentCode)
+      const userMessage = build_user_message(currentMessage, currentCode || "")
       setChatMessages(prev => [...prev, userMessage])
 
       const promptObject = build_prompt_object(
@@ -60,6 +56,8 @@ function App() {
     }
   }
 
+  console.log('Render state:', { isAuthorized, chatMessagesLength: chatMessages.length, isLoading })
+
   // Show auth dialog when not authorized
   if (!isAuthorized) {
     return (
@@ -75,7 +73,7 @@ function App() {
   }
 
   // Show welcome screen with input when authorized but no messages
-  if (chatMessages.length === 0) {
+  if (isAuthorized && chatMessages.length === 0) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex flex-col">
         <div className="flex-1 flex flex-col items-center justify-center">
@@ -100,18 +98,27 @@ function App() {
   }
 
   // Show full chat when messages exist
+  if (isAuthorized && chatMessages.length > 0) {
+    return (
+      <div className="min-h-screen bg-gray-900">
+        <Chat 
+          chatMessages={chatMessages}
+          currentMessage={currentMessage}
+          setCurrentMessage={setCurrentMessage}
+          currentCode={currentCode}
+          setCurrentCode={setCurrentCode}
+          currentLang={currentLang}
+          setCurrentLang={setCurrentLang}
+          handleSubmit={handleSubmit}
+        />
+      </div>
+    )
+  }
+
+  // Fallback - should never reach here
   return (
-    <div className="min-h-screen bg-gray-900">
-      <Chat 
-        chatMessages={chatMessages}
-        currentMessage={currentMessage}
-        setCurrentMessage={setCurrentMessage}
-        currentCode={currentCode}
-        setCurrentCode={setCurrentCode}
-        currentLang={currentLang}
-        setCurrentLang={setCurrentLang}
-        handleSubmit={handleSubmit}
-      />
+    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+      <p>Loading...</p>
     </div>
   );
 }

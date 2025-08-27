@@ -13,8 +13,18 @@ from google import genai
 from user import User
 from chatbot import Chatbot
 from google.genai import types
+from middleware import create_jwt_token, require_auth
 
 app = Flask(__name__)
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'your-secret-key-change-this')
+
+# CORS headers
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
 # Simple in-memory store: {session_id: [messages]}
 SESSIONS = {}
@@ -111,17 +121,19 @@ def login():
     user = user_collection.find_one({"username": username})
 
     if not user or not check_password_hash(user['password_hash'], password):
-        # Failed login
         return jsonify({"error": "Invalid username or password"}), 401
-    else:
-        # Successful login
-        chat_collection = db["user_chat_histories"]
-        user_doc = get_sessions(user["_id"])
-        new_user = User().login(user_doc)
-        return jsonify({"success": f"logged in as {username}"})
+    
+    # Generate JWT token
+    token = create_jwt_token(user['_id'], username)
+    return jsonify({
+        "token": token,
+        "user_id": str(user['_id']),
+        "username": username
+    })
 
 #db
 @app.route("/chat", methods=["POST"])
+@require_auth
 def chat():
     try:    
         chatbot = Chatbot()
@@ -165,5 +177,5 @@ if __name__ == "__main__":
     t.daemon = True
     t.start()
 
-    webview.create_window("Coding Assistant", 'http://localhost:5000')
+    webview.create_window("Coding Assistant", 'http://localhost:3000')
     webview.start()

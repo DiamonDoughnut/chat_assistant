@@ -2,8 +2,6 @@
 
 A desktop chat application with AI-powered coding assistance, built with modern web technologies and packaged as a native desktop app.
 
-![Chat Assistant Demo](demo.gif)
-
 ## 🚀 Features
 
 - **AI-Powered Chat**: Integration with Google Gemini AI for intelligent coding assistance
@@ -43,6 +41,14 @@ A desktop chat application with AI-powered coding assistance, built with modern 
 - **Python** (v3.8 or higher)
 - **MongoDB** database (local or Atlas)
 - **Google Gemini API** key
+
+## Screenshots
+
+![Login Screen](assets/login-screen.png)
+![Account Register Screen](assets/register-screen.png)
+![Logged in with no messages](assets/start-screen.png)
+![Logged in with messages and Code block open](assets/messages-screen.png)
+![Supported languages dropdown menu](assets/lang-menu.png)
 
 ## 🔧 Installation
 

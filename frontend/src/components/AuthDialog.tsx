@@ -79,12 +79,12 @@ const AuthDialog = ({login, register, authError, open}: AuthDialogProps) => {
           </DialogHeader>
           )}
           <div className="grid gap-4">
-            {String(authError) && (
+            {typeof authError !== undefined || typeof authError !== null && (
               <div className="bg-red-900/50 border border-red-700 rounded-md p-3">
                 <p className="text-red-200 text-sm">
-                  {String(typeof authError === 'string' ? authError : 
+                  {typeof authError === 'string' ? authError : 
                    authError instanceof Error ? authError.message : 
-                   'Authentication failed')}
+                   'Authentication failed'}
                 </p>
               </div>
             )}
